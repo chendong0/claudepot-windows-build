@@ -1269,6 +1269,7 @@ pub fn run() {
             commands::config::config_effective_mcp,
             commands::pricing::pricing_get,
             commands::pricing::pricing_refresh,
+            commands::codex_usage::codex_usage_read,
             commands::usage_local::local_usage_aggregate,
             commands::usage_local::pricing_tier_get,
             commands::usage_local::pricing_tier_set,

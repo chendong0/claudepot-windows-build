@@ -4,7 +4,7 @@ import { i18n } from "../../lib/i18n";
 import { api } from "../../api";
 import { renderError } from "../../lib/i18n-error";
 import { sessionEventMs } from "../../lib/sessionTime";
-import type { PriceTableDto, SessionRow } from "../../types";
+import type { CodexUsageDto, PriceTableDto, SessionRow } from "../../types";
 import {
   estimatedRateHint,
   formatUsd,
@@ -191,8 +191,206 @@ export function DashboardStrip() {
           </>
         )}
       </StatCard>
+
+      <div style={{ gridColumn: "1 / -1" }}>
+        <CodexUsageCard />
+      </div>
     </div>
   );
+}
+
+// ---------- Codex usage card ----------
+
+/**
+ * Codex CLI rate-limit card. Reads the newest snapshot the `codex`
+ * CLI wrote into `~/.codex/sessions/**` — the 5-hour rolling window,
+ * the weekly window, and any pay-as-you-go overage credits. Purely
+ * observational: nothing here changes Codex state.
+ *
+ * Renders "no data yet" (not an error) when Codex is installed but
+ * has produced no snapshot, and simply hides its rows when a window
+ * is absent from the snapshot.
+ */
+function CodexUsageCard() {
+  const [data, setData] = useState<CodexUsageDto | null | undefined>(undefined);
+  const [failed, setFailed] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .codexUsageRead()
+      .then((d) => {
+        if (!cancelled) {
+          setData(d);
+          setFailed(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tick]);
+
+  // Re-read every 60s so the reset countdown and percentages stay
+  // live while the Activities tab is open.
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const planChip =
+    data && data.plan_type ? (
+      <span
+        className="mono-cap"
+        style={{
+          fontSize: "var(--fs-2xs)",
+          color: "var(--fg-faint)",
+          border: "var(--bw-hair) solid var(--line)",
+          borderRadius: "var(--r-1)",
+          padding: "var(--sp-2) var(--sp-6)",
+          letterSpacing: "0.04em",
+          textTransform: "uppercase",
+        }}
+      >
+        {data.plan_type}
+      </span>
+    ) : undefined;
+
+  return (
+    <StatCard label="Codex usage" right={planChip}>
+      {failed ? (
+        <IdleValue>Couldn’t read Codex usage</IdleValue>
+      ) : data === undefined ? (
+        <Subline>Loading…</Subline>
+      ) : data === null ? (
+        <IdleValue>No Codex usage data yet</IdleValue>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "var(--sp-8)",
+          }}
+        >
+          <CodexWindowRow label="5-hour window" window={data.primary} />
+          <CodexWindowRow label="Weekly window" window={data.secondary} />
+          <CodexCreditsRow credits={data.credits} />
+          {data.captured_at && (
+            <div
+              style={{
+                fontSize: "var(--fs-2xs)",
+                color: "var(--fg-faint)",
+              }}
+            >
+              as of {formatCodexCapturedAt(data.captured_at)}
+            </div>
+          )}
+        </div>
+      )}
+    </StatCard>
+  );
+}
+
+function CodexWindowRow({
+  label,
+  window: w,
+}: {
+  label: string;
+  window: CodexUsageDto["primary"];
+}) {
+  if (!w) return null;
+  const pct = Math.max(0, Math.min(100, w.used_percent));
+  const near = w.used_percent >= 90;
+  const mid = w.used_percent >= 70;
+  const barColor = near
+    ? "var(--danger)"
+    : mid
+      ? "var(--warn, var(--accent))"
+      : "var(--accent)";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-2)" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          fontSize: "var(--fs-xs)",
+          color: "var(--fg-muted)",
+        }}
+      >
+        <span>{label}</span>
+        <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--fg)" }}>
+          {w.used_percent.toFixed(0)}%
+          {w.resets_at > 0 && (
+            <span style={{ color: "var(--fg-faint)" }}>
+              {" · "}
+              {formatResetsIn(w.resets_at)}
+            </span>
+          )}
+        </span>
+      </div>
+      <div
+        style={{
+          height: 4,
+          borderRadius: 2,
+          background: "var(--line)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${pct}%`,
+            height: "100%",
+            background: barColor,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function CodexCreditsRow({
+  credits,
+}: {
+  credits: CodexUsageDto["credits"];
+}) {
+  const text = credits.unlimited
+    ? "Overage: unlimited"
+    : credits.has_credits || (credits.balance && credits.balance !== "0")
+      ? `Overage credits: ${credits.balance}`
+      : "Overage credits: none";
+  return (
+    <div style={{ fontSize: "var(--fs-xs)", color: "var(--fg-muted)" }}>
+      {text}
+    </div>
+  );
+}
+
+/** "resets in 3h 12m" / "resets in 2d 4h" / "resets now". */
+function formatResetsIn(unixSecs: number): string {
+  const deltaMs = unixSecs * 1000 - Date.now();
+  if (deltaMs <= 0) return "resets now";
+  const mins = Math.round(deltaMs / 60_000);
+  const d = Math.floor(mins / 1440);
+  const h = Math.floor((mins % 1440) / 60);
+  const m = mins % 60;
+  if (d > 0) return `resets in ${d}d ${h}h`;
+  if (h > 0) return `resets in ${h}h ${m}m`;
+  return `resets in ${m}m`;
+}
+
+function formatCodexCapturedAt(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return iso;
+  const deltaMs = Date.now() - t;
+  const mins = Math.round(deltaMs / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 }
 
 // ---------- pure stat derivation ----------

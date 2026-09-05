@@ -54,6 +54,7 @@ pub mod cc_env;
 pub mod cc_retention;
 pub mod cc_tips;
 pub mod cli;
+pub mod codex_usage;
 pub mod config;
 pub mod config_types;
 pub mod desktop;

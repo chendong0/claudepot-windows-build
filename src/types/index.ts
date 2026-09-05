@@ -23,3 +23,4 @@ export * from "./updates";
 export * from "./memory-health";
 export * from "./ccEnv";
 export * from "./quick-prompt";
+export * from "./codexUsage";

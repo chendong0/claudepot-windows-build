@@ -56,6 +56,7 @@ pub mod cc_sweep;
 pub mod cc_tips;
 pub mod cli_backend;
 pub(crate) mod codex_session;
+pub mod codex_usage;
 pub mod config_view;
 pub mod corpus;
 pub mod crash_reports;

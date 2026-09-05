@@ -44,6 +44,7 @@ import { permissionApi } from "./permission";
 import { envSecretApi } from "./envSecret";
 import { diagnosticsApi } from "./diagnostics";
 import { sharedMemoryApi } from "./sharedMemory";
+import { codexUsageApi } from "./codexUsage";
 
 export const api = {
   ...boardApi,
@@ -85,6 +86,7 @@ export const api = {
   ...permissionApi,
   ...envSecretApi,
   ...diagnosticsApi,
+  ...codexUsageApi,
   migrate: migrateApi,
   // Namespaced because the method names (search, listMemories,
   // etc.) are generic and would collide with other domains.
