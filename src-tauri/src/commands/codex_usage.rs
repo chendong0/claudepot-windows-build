@@ -81,6 +81,27 @@ pub async fn codex_usage_read() -> Result<Option<CodexUsageDto>, String> {
     .map_err(|e| format!("task join: {e}"))?
 }
 
+/// Aggregate lifetime + windowed Codex stats for the Accounts card
+/// (cumulative tokens, streak) and the Cost tab (per-model token
+/// breakdown + a rough API-equivalent dollar estimate). `None` when
+/// there is no `~/.codex`. The core type serializes as-is; see
+/// `claudepot_core::codex_stats` for the field meanings and caveats.
+#[tauri::command]
+pub async fn codex_stats_read(
+) -> Result<Option<claudepot_core::codex_stats::CodexStats>, String> {
+    let now_secs = chrono::Utc::now().timestamp();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(home) = codex_usage::codex_home() else {
+            return Ok(None);
+        };
+        claudepot_core::codex_stats::read_all(&home, now_secs)
+            .map(Some)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| format!("task join: {e}"))?
+}
+
 // The snapshot parsing this command depends on is covered by
 // `claudepot_core::codex_usage`'s unit tests. The `From` impl here is
 // a straight field copy; it is exercised whenever the Activities

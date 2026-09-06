@@ -26,6 +26,7 @@ import { Table, Th, ThSort, Tr, Td } from "../../components/primitives";
 import { formatRelative } from "../../lib/formatRelative";
 import { i18n } from "../../lib/i18n";
 import { renderError } from "../../lib/i18n-error";
+import { CodexCostPanel } from "./CodexCostPanel";
 import type {
   LocalUsageReport,
   PriceTierId,
@@ -239,6 +240,7 @@ export function CostTab() {
         loading={loading}
       />
       <SummaryTiles report={report} loading={loading} />
+      <CodexCostPanel />
       {error && (
         <div
           role="alert"

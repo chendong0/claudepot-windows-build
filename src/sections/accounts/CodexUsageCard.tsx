@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
-import type { CodexUsageDto } from "../../types";
+import type { CodexStatsDto, CodexUsageDto } from "../../types";
 import { formatResetTime } from "./format";
 
 /**
@@ -42,6 +42,21 @@ export function CodexUsageCard() {
     const id = window.setInterval(() => setTick((n) => n + 1), 60_000);
     return () => window.clearInterval(id);
   }, []);
+
+  // Lifetime rollup — refreshed on the same 60s tick as the windows.
+  const [stats, setStats] = useState<CodexStatsDto | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .codexStatsRead()
+      .then((s) => {
+        if (!cancelled) setStats(s);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [tick]);
 
   // Hide the card entirely when Codex isn't installed / has no data —
   // an empty "no data" card on the Accounts page is just noise. A
@@ -135,6 +150,20 @@ export function CodexUsageCard() {
                 ? data.credits.balance
                 : t("usage.extra.off")}
           </div>
+          {stats && stats.session_count > 0 && (
+            <div
+              style={{
+                marginTop: "var(--sp-8)",
+                fontSize: "var(--fs-2xs)",
+                color: "var(--fg-faint)",
+              }}
+            >
+              {fmtTok(stats.total_tokens)} tok · {stats.active_days} days ·{" "}
+              streak {stats.current_streak_days}d · peak{" "}
+              {fmtTok(stats.peak_day_tokens)}/d
+              <span style={{ opacity: 0.7 }}>{" (local est.)"}</span>
+            </div>
+          )}
           {data.captured_at && (
             <div
               style={{
@@ -150,6 +179,13 @@ export function CodexUsageCard() {
       )}
     </article>
   );
+}
+
+function fmtTok(n: number): string {
+  if (n >= 1e8) return `${(n / 1e8).toFixed(2)}亿`;
+  if (n >= 1e4) return `${(n / 1e4).toFixed(1)}万`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+  return String(n);
 }
 
 function StatusLine({ children }: { children: React.ReactNode }) {

@@ -2,7 +2,7 @@
 // src/api/index.ts merges every domain slice into `api`.
 
 import { invoke } from "@tauri-apps/api/core";
-import type { CodexUsageDto } from "../types";
+import type { CodexStatsDto, CodexUsageDto } from "../types";
 
 export const codexUsageApi = {
   /**
@@ -14,5 +14,16 @@ export const codexUsageApi = {
    */
   codexUsageRead(): Promise<CodexUsageDto | null> {
     return invoke("codex_usage_read");
+  },
+
+  /**
+   * Aggregate stats over every local Codex rollout log: lifetime
+   * token total, activity streak, per-model token breakdown, and a
+   * rough API-equivalent dollar estimate (one flat rate — see
+   * `cost_is_estimate`). Local-only, so lower than the ChatGPT app's
+   * profile figures. `null` when `~/.codex` is absent.
+   */
+  codexStatsRead(): Promise<CodexStatsDto | null> {
+    return invoke("codex_stats_read");
   },
 };
