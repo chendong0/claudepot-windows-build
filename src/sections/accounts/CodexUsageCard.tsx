@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import type { CodexUsageDto } from "../../types";
+import { formatResetTime } from "./format";
 
 /**
  * Codex CLI rate-limit card, rendered on the Accounts page beneath
@@ -215,7 +216,9 @@ function Row({
           textOverflow: "ellipsis",
         }}
       >
-        {w.resets_at > 0 ? formatResetsIn(w.resets_at) : "—"}
+        {w.resets_at > 0
+          ? formatResetTime(new Date(w.resets_at * 1000).toISOString())
+          : "—"}
       </span>
     </div>
   );
@@ -243,18 +246,6 @@ function SegBar({ pct, band }: { pct: number; band: string }) {
       ))}
     </div>
   );
-}
-
-function formatResetsIn(unixSecs: number): string {
-  const deltaMs = unixSecs * 1000 - Date.now();
-  if (deltaMs <= 0) return "now";
-  const mins = Math.round(deltaMs / 60_000);
-  const d = Math.floor(mins / 1440);
-  const h = Math.floor((mins % 1440) / 60);
-  const m = mins % 60;
-  if (d > 0) return `${d}d ${h}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
 }
 
 function formatAgo(iso: string): string {
