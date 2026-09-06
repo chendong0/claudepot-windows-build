@@ -20,6 +20,7 @@ import { SkeletonList } from "../components/primitives/Skeleton";
 import { ScreenHeader } from "../shell/ScreenHeader";
 import { setPendingKeysFilter } from "./keys/pendingFilter";
 import { AccountsGrid } from "./accounts/AccountsGrid";
+import { CodexUsageCard } from "./accounts/CodexUsageCard";
 import { AddAccountModal } from "./accounts/AddAccountModal";
 import { HealthChips } from "./accounts/HealthChips";
 import { CtxMenuForAccount } from "./accounts/useAccountContextMenu";
@@ -565,6 +566,8 @@ export function AccountsSection({
         onRefreshUsage={(a) => refreshUsageFor(a.uuid)}
         onVerifyAccount={runVerifyAccount}
       />
+
+      <CodexUsageCard />
 
       <AddAccountModal
         open={showAdd}
