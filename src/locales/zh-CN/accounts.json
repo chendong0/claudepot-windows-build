@@ -246,6 +246,7 @@
     "header": "限额窗口",
     "cachedTitle": "缓存 — 最后获取于 {{time}}",
     "ageOld": "已缓存 {{age}}",
+    "staleWindow": "该窗口已重置 — Codex 只在 CLI 执行一轮对话时才更新此读数，因此当前百分比来自重置之前，可能已不准确。",
     "rows": {
       "fiveHour": "5 小时窗口",
       "sevenDay": "7 天全部",

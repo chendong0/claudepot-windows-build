@@ -249,6 +249,7 @@
     "header": "Rate-limit windows",
     "cachedTitle": "Cached — last fetched {{time}}",
     "ageOld": "{{age}} old",
+    "staleWindow": "This window already reset — Codex only updates this reading when the CLI runs a turn, so the percentage shown is from before the reset and may no longer be accurate.",
     "rows": {
       "fiveHour": "5h window",
       "sevenDay": "7d all",

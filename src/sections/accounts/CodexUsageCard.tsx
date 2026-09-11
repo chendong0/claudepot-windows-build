@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api";
+import { Glyph } from "../../components/primitives/Glyph";
+import { NF } from "../../icons";
 import type { CodexStatsDto, CodexUsageDto } from "../../types";
 import { formatResetTime } from "./format";
 
@@ -205,10 +207,22 @@ function Row({
   window: CodexUsageDto["primary"];
   emph?: boolean;
 }) {
+  const { t } = useTranslation("accounts");
   if (!w) return null;
   const pct = Math.round(Math.max(0, Math.min(100, w.used_percent)));
-  const band =
-    pct >= 90
+  // Codex only records a snapshot when the CLI itself runs a turn — see
+  // `codex_usage.rs`'s module doc. So a window whose `resets_at` has
+  // already passed has definitely rolled over in reality (confirmed by
+  // e.g. the ChatGPT app's own live usage panel), but this card is still
+  // showing the LAST reading from before that rollover. Painting that
+  // number in the same red/amber bands as a live reading — 99% used, in
+  // red — reads as "you are nearly capped" when the true current value
+  // is unknown and could be anywhere from 0%. Mute it and say so instead
+  // of asserting a number we know is stale.
+  const stale = w.resets_at > 0 && w.resets_at * 1000 <= Date.now();
+  const band = stale
+    ? "var(--fg-faint)"
+    : pct >= 90
       ? "var(--danger)"
       : pct >= 60
         ? "var(--warn, var(--accent))"
@@ -231,18 +245,37 @@ function Row({
       >
         {label}
       </span>
-      <SegBar pct={pct} band={band} />
+      <SegBar pct={pct} band={band} muted={stale} />
       <span
+        title={stale ? t("usage.staleWindow") : undefined}
         style={{
           fontVariantNumeric: "tabular-nums",
           textAlign: "right",
           fontWeight: 600,
-          color: pct >= 60 ? band : emph ? "var(--fg)" : "var(--fg-muted)",
+          color: stale
+            ? "var(--fg-faint)"
+            : pct >= 60
+              ? band
+              : emph
+                ? "var(--fg)"
+                : "var(--fg-muted)",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          gap: "var(--sp-2)",
         }}
       >
+        {stale && (
+          <Glyph
+            g={NF.clock}
+            style={{ fontSize: "var(--fs-3xs)" }}
+          />
+        )}
+        {stale ? "~" : ""}
         {pct}%
       </span>
       <span
+        title={stale ? t("usage.staleWindow") : undefined}
         style={{
           textAlign: "right",
           color: "var(--fg-faint)",
@@ -260,7 +293,15 @@ function Row({
   );
 }
 
-function SegBar({ pct, band }: { pct: number; band: string }) {
+function SegBar({
+  pct,
+  band,
+  muted = false,
+}: {
+  pct: number;
+  band: string;
+  muted?: boolean;
+}) {
   const segs = 20;
   const raw = Math.round((pct / 100) * segs);
   const filled = pct > 0 ? Math.max(1, raw) : 0;
@@ -276,7 +317,11 @@ function SegBar({ pct, band }: { pct: number; band: string }) {
             flex: 1,
             background: i < filled ? band : "var(--bg-active)",
             borderRadius: "var(--sp-px)",
-            opacity: i < filled ? 1 : "var(--opacity-segbar)",
+            // A stale reading keeps its filled-segment count (the shape
+            // of the last known reading) but drops to the same faint
+            // opacity as the unfilled tail, so the bar reads as a ghost
+            // of a number rather than a confident live one.
+            opacity: i < filled ? (muted ? "var(--opacity-segbar)" : 1) : "var(--opacity-segbar)",
           }}
         />
       ))}
