@@ -16,6 +16,9 @@ vi.mock("../../api", () => ({
     pricingTierGet: (...args: unknown[]) => pricingTierGetMock(...args),
     pricingTierSet: (...args: unknown[]) => pricingTierSetMock(...args),
     topCostlyPrompts: (...args: unknown[]) => topCostlyPromptsMock(...args),
+    // CostTab renders `CodexCostPanel`, which probes this on mount —
+    // resolving to null (no Codex data) keeps that panel a no-op here.
+    codexStatsRead: () => Promise.resolve(null),
   },
 }));
 
