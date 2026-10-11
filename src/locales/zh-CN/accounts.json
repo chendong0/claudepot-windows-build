@@ -308,5 +308,14 @@
   },
   "identity": {
     "verified": "已验证"
+  },
+  "codex": {
+    "signIn": "登录",
+    "reSignIn": "重新登录",
+    "signingIn": "等待浏览器完成登录…",
+    "signedOut": "Codex 未登录。",
+    "notInstalled": "未在 PATH 中找到 Codex CLI。",
+    "loginFailed": "Codex 登录失败：{{detail}}",
+    "noSnapshot": "暂无用量快照 — 先运行一次 Codex。"
   }
 }

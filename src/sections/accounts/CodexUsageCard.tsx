@@ -3,7 +3,12 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api";
 import { Glyph } from "../../components/primitives/Glyph";
 import { NF } from "../../icons";
-import type { CodexStatsDto, CodexUsageDto } from "../../types";
+import { Button } from "../../components/primitives/Button";
+import type {
+  CodexAuthStatusDto,
+  CodexStatsDto,
+  CodexUsageDto,
+} from "../../types";
 import { formatResetTime } from "./format";
 
 /**
@@ -60,11 +65,42 @@ export function CodexUsageCard() {
     };
   }, [tick]);
 
-  // Hide the card entirely when Codex isn't installed / has no data —
-  // an empty "no data" card on the Accounts page is just noise. A
-  // read failure keeps `data` at `undefined`, so this only fires on a
-  // successful "no snapshot" result.
-  if (data === null) return null;
+  // Sign-in state from ~/.codex/auth.json — same 60s tick, plus an
+  // immediate re-read after a login/logout finishes.
+  const [auth, setAuth] = useState<CodexAuthStatusDto | null>(null);
+  const [busy, setBusy] = useState<"login" | "logout" | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .codexAuthStatus()
+      .then((a) => {
+        if (!cancelled) setAuth(a);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [tick]);
+
+  const runAuth = (verb: "login" | "logout") => {
+    setBusy(verb);
+    setAuthError(null);
+    const call = verb === "login" ? api.codexLogin() : api.codexLogout();
+    void call
+      .then((a) => setAuth(a))
+      .catch((e: unknown) => setAuthError(String(e)))
+      .finally(() => {
+        setBusy(null);
+        setTick((n) => n + 1);
+      });
+  };
+
+  // Hide the card only when Codex isn't installed AND has no data —
+  // an installed-but-signed-out Codex still needs the sign-in button.
+  // A read failure keeps `data` at `undefined`, so this only fires on
+  // a successful "no snapshot" result.
+  if (data === null && !auth?.installed && !auth?.signed_in) return null;
 
   return (
     <article
@@ -92,8 +128,38 @@ export function CodexUsageCard() {
           }}
         >
           Codex
+          {auth?.signed_in && auth.email ? (
+            <span
+              className="selectable"
+              style={{
+                marginLeft: "var(--sp-8)",
+                fontWeight: 400,
+                fontSize: "var(--fs-xs)",
+                color: "var(--fg-muted)",
+              }}
+            >
+              {auth.email}
+            </span>
+          ) : null}
         </span>
-        {data?.plan_type ? (
+        <span
+          style={{ display: "inline-flex", alignItems: "center", gap: "var(--sp-8)" }}
+        >
+          {auth?.installed ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy !== null}
+              onClick={() => runAuth("login")}
+            >
+              {busy === "login"
+                ? t("codex.signingIn")
+                : auth.signed_in
+                  ? t("codex.reSignIn")
+                  : t("codex.signIn")}
+            </Button>
+          ) : null}
+        {(auth?.plan_type || data?.plan_type) ? (
           <span
             className="mono-cap"
             style={{
@@ -106,13 +172,24 @@ export function CodexUsageCard() {
               textTransform: "uppercase",
             }}
           >
-            {data.plan_type}
+            {auth?.plan_type || data?.plan_type}
           </span>
         ) : null}
+        </span>
       </div>
+
+      {authError ? (
+        <StatusLine>{t("codex.loginFailed", { detail: authError })}</StatusLine>
+      ) : auth && !auth.installed && !auth.signed_in ? (
+        <StatusLine>{t("codex.notInstalled")}</StatusLine>
+      ) : auth && !auth.signed_in ? (
+        <StatusLine>{t("codex.signedOut")}</StatusLine>
+      ) : null}
 
       {failed ? (
         <StatusLine>{t("usage.fetchFailed", { detail: "codex" })}</StatusLine>
+      ) : data === null ? (
+        <StatusLine>{t("codex.noSnapshot")}</StatusLine>
       ) : data === undefined ? (
         <StatusLine>{t("usage.refreshing")}</StatusLine>
       ) : (

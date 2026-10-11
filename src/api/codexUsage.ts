@@ -2,7 +2,11 @@
 // src/api/index.ts merges every domain slice into `api`.
 
 import { invoke } from "@tauri-apps/api/core";
-import type { CodexStatsDto, CodexUsageDto } from "../types";
+import type {
+  CodexAuthStatusDto,
+  CodexStatsDto,
+  CodexUsageDto,
+} from "../types";
 
 export const codexUsageApi = {
   /**
@@ -25,5 +29,23 @@ export const codexUsageApi = {
    */
   codexStatsRead(): Promise<CodexStatsDto | null> {
     return invoke("codex_stats_read");
+  },
+
+  /** Codex sign-in state from `~/.codex/auth.json`. No secrets. */
+  codexAuthStatus(): Promise<CodexAuthStatusDto> {
+    return invoke("codex_auth_status");
+  },
+
+  /**
+   * Run `codex login` — Codex opens the browser and waits for the
+   * OAuth callback. Resolves with the new status once it exits.
+   */
+  codexLogin(): Promise<CodexAuthStatusDto> {
+    return invoke("codex_login");
+  },
+
+  /** Run `codex logout`. */
+  codexLogout(): Promise<CodexAuthStatusDto> {
+    return invoke("codex_logout");
   },
 };

@@ -102,6 +102,38 @@ pub async fn codex_stats_read(
     .map_err(|e| format!("task join: {e}"))?
 }
 
+/// Codex sign-in state for the Accounts card. Secret-free — see
+/// `claudepot_core::codex_auth::CodexAuthStatus`.
+#[tauri::command]
+pub async fn codex_auth_status(
+) -> Result<claudepot_core::codex_auth::CodexAuthStatus, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let home = codex_usage::codex_home().ok_or("no home directory")?;
+        Ok(claudepot_core::codex_auth::read_status(&home))
+    })
+    .await
+    .map_err(|e| format!("task join: {e}"))?
+}
+
+/// Run `codex login` (browser OAuth owned by Codex) and return the
+/// resulting status. Resolves when the user finishes in the browser.
+#[tauri::command]
+pub async fn codex_login() -> Result<claudepot_core::codex_auth::CodexAuthStatus, String> {
+    claudepot_core::codex_auth::login()
+        .await
+        .map_err(|e| e.to_string())?;
+    codex_auth_status().await
+}
+
+/// Run `codex logout` and return the resulting status.
+#[tauri::command]
+pub async fn codex_logout() -> Result<claudepot_core::codex_auth::CodexAuthStatus, String> {
+    claudepot_core::codex_auth::logout()
+        .await
+        .map_err(|e| e.to_string())?;
+    codex_auth_status().await
+}
+
 // The snapshot parsing this command depends on is covered by
 // `claudepot_core::codex_usage`'s unit tests. The `From` impl here is
 // a straight field copy; it is exercised whenever the Activities

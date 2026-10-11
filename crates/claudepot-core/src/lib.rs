@@ -55,6 +55,7 @@ pub mod cc_retention;
 pub mod cc_sweep;
 pub mod cc_tips;
 pub mod cli_backend;
+pub mod codex_auth;
 pub(crate) mod codex_session;
 pub mod codex_stats;
 pub mod codex_usage;

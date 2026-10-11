@@ -68,3 +68,16 @@ export interface CodexStatsDto {
   /** Always true today — the $ figure uses one flat GPT-4-class rate. */
   cost_is_estimate: boolean;
 }
+
+// ── Codex sign-in state (codex_auth_status / codex_login / codex_logout) ──
+
+export interface CodexAuthStatusDto {
+  /** A `codex` binary was found on PATH. */
+  installed: boolean;
+  signed_in: boolean;
+  /** "chatgpt" | "apikey" | "" */
+  auth_mode: string;
+  email: string;
+  plan_type: string;
+  last_refresh: string;
+}

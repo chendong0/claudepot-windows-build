@@ -1,18 +1,41 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-import type { CodexUsageDto } from "../../types";
+import type { CodexAuthStatusDto, CodexUsageDto } from "../../types";
 
 // Narrow API mock — the card only probes `codexUsageRead` / `codexStatsRead`
 // on mount and on its 60s tick.
 const usageSpy = vi.fn();
 const statsSpy = vi.fn();
+const authSpy = vi.fn();
+const loginSpy = vi.fn();
 vi.mock("../../api", () => ({
   api: {
     codexUsageRead: (...args: unknown[]) => usageSpy(...args),
     codexStatsRead: (...args: unknown[]) => statsSpy(...args),
+    codexAuthStatus: (...args: unknown[]) => authSpy(...args),
+    codexLogin: (...args: unknown[]) => loginSpy(...args),
+    codexLogout: vi.fn(),
   },
 }));
+
+function mkAuth(overrides: Partial<CodexAuthStatusDto> = {}): CodexAuthStatusDto {
+  return {
+    installed: true,
+    signed_in: true,
+    auth_mode: "chatgpt",
+    email: "me@example.com",
+    plan_type: "plus",
+    last_refresh: "",
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  authSpy.mockReset();
+  loginSpy.mockReset();
+  authSpy.mockResolvedValue(mkAuth());
+});
 
 import { CodexUsageCard } from "./CodexUsageCard";
 
@@ -88,5 +111,74 @@ describe("CodexUsageCard — stale window handling", () => {
 
     await waitFor(() => expect(screen.getByText("40%")).toBeInTheDocument());
     expect(screen.queryByText(/~40%/)).not.toBeInTheDocument();
+  });
+});
+
+describe("CodexUsageCard — sign-in", () => {
+  it("shows the signed-in email and a re-sign-in button", async () => {
+    usageSpy.mockResolvedValue(mkUsage());
+    statsSpy.mockResolvedValue(null);
+
+    render(<CodexUsageCard />);
+
+    await waitFor(() =>
+      expect(screen.getByText("me@example.com")).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: /re-sign in/i })).toBeInTheDocument();
+  });
+
+  it("still renders with a sign-in button when Codex has no snapshot and is signed out", async () => {
+    usageSpy.mockResolvedValue(null);
+    statsSpy.mockResolvedValue(null);
+    authSpy.mockResolvedValue(mkAuth({ signed_in: false, email: "", plan_type: "" }));
+
+    render(<CodexUsageCard />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^sign in$/i })).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/not signed in/i)).toBeInTheDocument();
+  });
+
+  it("runs codex login and shows the new account", async () => {
+    usageSpy.mockResolvedValue(mkUsage());
+    statsSpy.mockResolvedValue(null);
+    authSpy.mockResolvedValue(mkAuth({ signed_in: false, email: "" }));
+    let finish: (a: CodexAuthStatusDto) => void = () => {};
+    loginSpy.mockReturnValue(new Promise((r) => (finish = r)));
+
+    render(<CodexUsageCard />);
+    const btn = await screen.findByRole("button", { name: /^sign in$/i });
+    fireEvent.click(btn);
+
+    expect(loginSpy).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/waiting for browser/i)).toBeInTheDocument();
+
+    authSpy.mockResolvedValue(mkAuth({ email: "new@example.com" }));
+    finish(mkAuth({ email: "new@example.com" }));
+    await waitFor(() =>
+      expect(screen.getByText("new@example.com")).toBeInTheDocument(),
+    );
+  });
+
+  it("surfaces a login failure inline", async () => {
+    usageSpy.mockResolvedValue(mkUsage());
+    statsSpy.mockResolvedValue(null);
+    loginSpy.mockRejectedValue("codex login timed out after 600s");
+
+    render(<CodexUsageCard />);
+    fireEvent.click(await screen.findByRole("button", { name: /re-sign in/i }));
+
+    expect(await screen.findByText(/timed out after 600s/)).toBeInTheDocument();
+  });
+
+  it("hides the card when Codex is neither installed nor has data", async () => {
+    usageSpy.mockResolvedValue(null);
+    statsSpy.mockResolvedValue(null);
+    authSpy.mockResolvedValue(mkAuth({ installed: false, signed_in: false }));
+
+    const { container } = render(<CodexUsageCard />);
+    await waitFor(() => expect(authSpy).toHaveBeenCalled());
+    await waitFor(() => expect(container.firstChild).toBeNull());
   });
 });

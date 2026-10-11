@@ -311,5 +311,14 @@
   },
   "identity": {
     "verified": "verified"
+  },
+  "codex": {
+    "signIn": "Sign in",
+    "reSignIn": "Re-sign in",
+    "signingIn": "Waiting for browser sign-in…",
+    "signedOut": "Codex is not signed in.",
+    "notInstalled": "Codex CLI not found on PATH.",
+    "loginFailed": "Codex sign-in failed: {{detail}}",
+    "noSnapshot": "No usage snapshot yet — run Codex once."
   }
 }
